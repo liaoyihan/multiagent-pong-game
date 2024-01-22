@@ -2,4 +2,7 @@ Scripts/
 Lib/
 Include/
 share/
+model/
+data/
+__pycache__/
 pyvenv.cfg
