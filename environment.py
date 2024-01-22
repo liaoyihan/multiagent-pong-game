@@ -16,11 +16,14 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 LIGHT_BLUE = (173, 20, 230)
 YELLOW = (255, 255, 0)
+ORANGE = (255, 165, 0)
+LIGHT_BLUE2 = (173, 216, 230)
+
 SCREEN_WIDTH = 640
 SCREEN_HEIGHT = 480
 PADDLE_WIDTH = 15
 PADDLE_HEIGHT = 60
-PADDLE_SPEED = 10
+PADDLE_SPEED = 15
 BALL_WIDTH = 15
 BALL_HEIGHT = 15
 
@@ -43,12 +46,14 @@ Y_RANDOM_RANGE = (0, 2) # the range of randomisation when a collision happens be
 APPROACH_REWARD = 1
 CORRECT_BALL_REWARD = 100
 INCORRECT_BALL_REWARD = 50
-INCORRECT_BALL_PUNISHMENT = 2
-MISS_CORRECT_BALL_PUNISHMENT = 2
-MISS_INCORRECT_BALL_PUNISHMENT = 1
-CORNER_PUNISHMENT = 20
-STAY_PUNISHMENT = 0
-OVERLAP_PUNISHMENT = 0
+DISTANCE_MAX_REWARD = 0.5
+
+# INCORRECT_BALL_PUNISHMENT = 20
+# MISS_CORRECT_BALL_PUNISHMENT = 100
+# MISS_INCORRECT_BALL_PUNISHMENT = 50
+CORNER_PUNISHMENT = 0.5
+STAY_PUNISHMENT = 0.5
+OVERLAP_PUNISHMENT = 0.5
 
 STAY_PUNISHMENT_INTERVAL = 60
 OVERLAP_PUNISHMENT_INTERVAL = 60
@@ -70,6 +75,25 @@ def generate_center_position():
     x = SCREEN_WIDTH // 2 - BALL_WIDTH // 2
     y = SCREEN_HEIGHT // 2 - BALL_HEIGHT // 2
     return x, y
+
+def get_reward_from_distance(distance: float, correct: bool, threshold: float = SCREEN_HEIGHT/4, max_reward: float = DISTANCE_MAX_REWARD):
+    
+    a = max_reward/(threshold**2)
+    
+    if distance < threshold:
+        result = a*(distance-threshold)**2
+    else: 
+        result = -a*(distance - threshold)**2
+    
+    if correct:
+        return 2 * result
+    else:
+        return result 
+    
+
+
+
+
 
 
 class PongGame:
@@ -140,6 +164,21 @@ class PongGame:
         self.left_paddle_last_nonoverlap = 0
         self.right_paddle_last_nonoverlap = 0
         
+        # punishments
+        self.left_paddle1_stay = 0
+        self.left_paddle1_corner = 0
+        
+        self.left_paddle2_stay = 0
+        self.left_paddle2_corner = 0
+        
+        self.right_paddle1_stay = 0
+        self.right_paddle1_corner = 0
+        
+        self.right_paddle2_stay = 0
+        self.right_paddle2_corner = 0
+        
+        self.left_overlap = 0
+        self.right_overlap = 0
 
     def generate_velocity(self, speed=BALL_INITIAL_SPEED, num=2, direction=None):
         if direction is None:
@@ -192,6 +231,31 @@ class PongGame:
 
         self.left_paddle_last_nonoverlap = 0
         self.right_paddle_last_nonoverlap = 0
+
+        # punishments
+        self.left_paddle1_stay = 0
+        self.left_paddle1_corner = 0
+        
+        self.left_paddle2_stay = 0
+        self.left_paddle2_corner = 0
+        
+        self.right_paddle1_stay = 0
+        self.right_paddle1_corner = 0
+        
+        self.right_paddle2_stay = 0
+        self.right_paddle2_corner = 0
+        
+        self.left_overlap = 0
+        self.right_overlap = 0
+        
+        
+        self.left_paddle1 = pygame.Rect(5, SCREEN_HEIGHT // 4 - PADDLE_HEIGHT // 2, PADDLE_WIDTH, PADDLE_HEIGHT)
+        self.left_paddle2 = pygame.Rect(5, 3 * SCREEN_HEIGHT // 4 - PADDLE_HEIGHT // 2, PADDLE_WIDTH, PADDLE_HEIGHT)
+        self.right_paddle1 = pygame.Rect(SCREEN_WIDTH - 5 - PADDLE_WIDTH, SCREEN_HEIGHT // 4 - PADDLE_HEIGHT // 2,
+                                         PADDLE_WIDTH, PADDLE_HEIGHT)
+        self.right_paddle2 = pygame.Rect(SCREEN_WIDTH - 5 - PADDLE_WIDTH, 3 * SCREEN_HEIGHT // 4 - PADDLE_HEIGHT // 2,
+                                         PADDLE_WIDTH, PADDLE_HEIGHT)
+        
 
     def get_info(self):
         result = [
@@ -298,6 +362,13 @@ class PongGame:
         action_left_1 = action_left[0]
         action_left_2 = action_left[1]
 
+        left1_reward = 0
+        left2_reward = 0
+        right1_reward = 0
+        right2_reward = 0
+        
+        
+        
         # # Controls for right_paddle1
         # if action_right_1 == 1:
         #     if self.right_paddle1.top > 0:
@@ -386,15 +457,25 @@ class PongGame:
         # not encourage the paddel always stay at the corner of the game window
         if self.right_paddle1.top == 0 or self.right_paddle1.bottom == SCREEN_HEIGHT:
             self.reward_right_1 -= CORNER_PUNISHMENT
+            right1_reward -= CORNER_PUNISHMENT
+            self.right_paddle1_corner += CORNER_PUNISHMENT
+            # print("right_1 CORNER PUNISHMENT")
 
         if self.right_paddle2.top == 0 or self.right_paddle2.bottom == SCREEN_HEIGHT:
             self.reward_right_2 -= CORNER_PUNISHMENT
-
+            right2_reward -= CORNER_PUNISHMENT
+            self.right_paddle2_corner += CORNER_PUNISHMENT
+            # print("right_2 CORNER PUNISHMENT")
         if self.left_paddle1.top == 0 or self.left_paddle1.bottom == SCREEN_HEIGHT:
             self.reward_left_1 -= CORNER_PUNISHMENT
-
+            left1_reward -= CORNER_PUNISHMENT
+            self.left_paddle1_corner += CORNER_PUNISHMENT
+            # print("left_1 CORNER PUNISHMENT")
         if self.left_paddle2.top == 0 or self.left_paddle2.bottom == SCREEN_HEIGHT:
             self.reward_left_2 -= CORNER_PUNISHMENT
+            left2_reward -= CORNER_PUNISHMENT
+            self.left_paddle2_corner += CORNER_PUNISHMENT
+            # print("left_2 CORNER PUNISHMENT")
 
         self.run()
 
@@ -421,51 +502,72 @@ class PongGame:
 
         if self.left_paddle1.centery == self.last_left_paddle1_y:
             self.reward_left_1 -= STAY_PUNISHMENT
+            left1_reward -= STAY_PUNISHMENT
+            self.left_paddle1_stay += STAY_PUNISHMENT
             # print("LEFT 1 STAY PUNISHMENT")
         if self.left_paddle2.centery == self.last_left_paddle2_y:
             self.reward_left_2 -= STAY_PUNISHMENT
+            left2_reward -= STAY_PUNISHMENT
+            self.left_paddle2_stay += STAY_PUNISHMENT
             # print("LEFT 2 STAY PUNISHMENT")
         if self.right_paddle1.centery == self.last_right_paddle1_y:
             self.reward_right_1 -= STAY_PUNISHMENT
+            right1_reward -= STAY_PUNISHMENT
+            self.right_paddle1_stay += STAY_PUNISHMENT
             # print("RIGHT 1 STAY PUNISHMENT")
         if self.right_paddle2.centery == self.last_right_paddle2_y:
             self.reward_right_2 -= STAY_PUNISHMENT
+            right2_reward -= STAY_PUNISHMENT
+            self.right_paddle2_stay += STAY_PUNISHMENT
             # print("RIGHT 2 STAY PUNISHMENT")
 
         if abs(self.left_paddle1.centery - self.left_paddle2.centery) < PADDLE_HEIGHT:
             self.reward_left_1 -= OVERLAP_PUNISHMENT
             self.reward_left_2 -= OVERLAP_PUNISHMENT
+            left1_reward -= OVERLAP_PUNISHMENT
+            left2_reward -= OVERLAP_PUNISHMENT
+            self.left_overlap += OVERLAP_PUNISHMENT
             # print("LEFT OVERLAP PUNISHMENT")
         if abs(self.right_paddle1.centery - self.right_paddle2.centery) < PADDLE_HEIGHT:
             self.reward_right_1 -= OVERLAP_PUNISHMENT
             self.reward_right_2 -= OVERLAP_PUNISHMENT
+            right1_reward -= OVERLAP_PUNISHMENT
+            right2_reward -= OVERLAP_PUNISHMENT
+            self.right_overlap += OVERLAP_PUNISHMENT
             # print("RIGHT OVERLAP PUNISHMENT")
 
-        d = 10
+        temp = get_reward_from_distance(abs(self.right_paddle1.centery - self.ball1.centery),True)
+        self.reward_right_1 += temp
+        right1_reward += temp
+        
+        temp = get_reward_from_distance(abs(self.right_paddle1.centery - self.ball2.centery),False)
+        self.reward_right_1 += temp
+        right1_reward += temp
 
-        if abs(self.right_paddle1.centery - self.ball1.centery) < d:
-            self.reward_right_1 += APPROACH_REWARD
+        temp = get_reward_from_distance(abs(self.right_paddle2.centery - self.ball1.centery),False)
+        self.reward_right_2 += temp
+        right2_reward += temp
         
-        if abs(self.right_paddle1.centery - self.ball2.centery) < d:
-            self.reward_right_1 += APPROACH_REWARD
+        temp = get_reward_from_distance(abs(self.right_paddle2.centery - self.ball2.centery),True)
+        self.reward_right_2 += temp
+        right2_reward += temp
+
+        temp = get_reward_from_distance(abs(self.left_paddle1.centery - self.ball1.centery),True)
+        self.reward_left_1 += temp
+        left1_reward += temp
         
-        if abs(self.right_paddle2.centery - self.ball1.centery) < d:
-            self.reward_right_2 += APPROACH_REWARD
+        temp = get_reward_from_distance(abs(self.left_paddle1.centery - self.ball2.centery),False)
+        self.reward_left_1 += temp
+        left1_reward += temp
         
-        if abs(self.right_paddle2.centery - self.ball2.centery) < d:
-            self.reward_right_2 += APPROACH_REWARD
+        temp = get_reward_from_distance(abs(self.left_paddle2.centery - self.ball1.centery),False)
+        self.reward_left_2 += temp
+        left2_reward += temp
+
+        temp = get_reward_from_distance(abs(self.left_paddle2.centery - self.ball2.centery),True)
+        self.reward_left_2 += temp
+        left2_reward += temp
         
-        if abs(self.left_paddle1.centery - self.ball1.centery) < d:
-            self.reward_left_1 += APPROACH_REWARD
-        
-        if abs(self.left_paddle1.centery - self.ball2.centery) < d:
-            self.reward_left_1 += APPROACH_REWARD
-        
-        if abs(self.left_paddle2.centery - self.ball1.centery) < d:
-            self.reward_left_2 += APPROACH_REWARD
-        
-        if abs(self.left_paddle2.centery - self.ball2.centery) < d:
-            self.reward_left_2 += APPROACH_REWARD
 
         # if abs(self.left_paddle1.centery - self.left_paddle2.centery) > PADDLE_HEIGHT:
         #     if self.time - self.left_paddle_last_nonoverlap >= OVERLAP_PUNISHMENT_INTERVAL:
@@ -493,12 +595,12 @@ class PongGame:
         # if self.reward_left_2 != 0:
         #     reward_left_2 = self.reward_left_2
 
-# back to the original state
+        # back to the original state
         state = self.build_state()
 
         # self.done = 1
 
-        return state, self.reward_right_1, self.reward_right_2, self.reward_left_1, self.reward_left_2, self.done
+        return state, left1_reward, left2_reward, right1_reward, right2_reward, self.done
 
 
     def start(self):
@@ -583,10 +685,10 @@ class PongGame:
             self.screen.fill(BLACK)
             pygame.draw.rect(self.screen, RED, self.left_paddle1)
             pygame.draw.rect(self.screen, GREEN, self.left_paddle2)
-            pygame.draw.rect(self.screen, LIGHT_BLUE, self.right_paddle1)
-            pygame.draw.rect(self.screen, YELLOW, self.right_paddle2)
-            pygame.draw.ellipse(self.screen, WHITE, self.ball1)
-            pygame.draw.ellipse(self.screen, WHITE, self.ball2)
+            pygame.draw.rect(self.screen, RED, self.right_paddle1)
+            pygame.draw.rect(self.screen, GREEN, self.right_paddle2)
+            pygame.draw.ellipse(self.screen, RED, self.ball1)
+            pygame.draw.ellipse(self.screen, GREEN, self.ball2)
             pygame.draw.aaline(self.screen, WHITE, (SCREEN_WIDTH // 2, 0), (SCREEN_WIDTH // 2, SCREEN_HEIGHT))
 
             # Display scores
@@ -647,8 +749,10 @@ class PongGame:
             # self.reward_left_2 = -1
             if ball_name == 'ball1':
                 self.ball1_count += 1
-                self.reward_left_1 -= MISS_CORRECT_BALL_PUNISHMENT
-                self.reward_left_2 -= MISS_INCORRECT_BALL_PUNISHMENT
+                # self.reward_left_1 -= MISS_CORRECT_BALL_PUNISHMENT
+                # print("left_1 MISS_correct_ball PUNISHMENT")
+                # self.reward_left_2 -= MISS_INCORRECT_BALL_PUNISHMENT
+                # print("left_2 MISS_incorrect_ball PUNISHMENT")
                 # ball 1
                 self.right_score += 1
                 # reserve from the middle
@@ -662,8 +766,10 @@ class PongGame:
 
             else:
                 self.ball2_count += 1
-                self.reward_left_1 -= MISS_INCORRECT_BALL_PUNISHMENT
-                self.reward_left_2 -= MISS_CORRECT_BALL_PUNISHMENT
+                # self.reward_left_1 -= MISS_INCORRECT_BALL_PUNISHMENT
+                # print("left_1 MISS_incorrect_ball PUNISHMENT")
+                # self.reward_left_2 -= MISS_CORRECT_BALL_PUNISHMENT
+                # print("left_2 MISS_correct_ball PUNISHMENT")
                 # ball 2
                 self.right_score += 1
                 ball.topleft = generate_center_position()
@@ -682,8 +788,10 @@ class PongGame:
             # self.reward_right_2 = -1
             if ball_name == 'ball1':
                 self.ball1_count += 1
-                self.reward_right_1 -= MISS_CORRECT_BALL_PUNISHMENT
-                self.reward_right_2 -= MISS_INCORRECT_BALL_PUNISHMENT
+                # self.reward_right_1 -= MISS_CORRECT_BALL_PUNISHMENT
+                # print("right_1 MISS_correct_ball PUNISHMENT")
+                # self.reward_right_2 -= MISS_INCORRECT_BALL_PUNISHMENT
+                # print("right_2 MISS_incorrect_ball PUNISHMENT")
                 self.left_score += 1
                 ball.topleft = generate_center_position()
                 # self.ball1_speed_x = -3 + random.uniform(-1, 1)  # Serve to the left
@@ -693,8 +801,10 @@ class PongGame:
 
             else:
                 self.ball2_count += 1
-                self.reward_right_1 -= MISS_INCORRECT_BALL_PUNISHMENT
-                self.reward_right_2 -= MISS_CORRECT_BALL_PUNISHMENT
+                # self.reward_right_1 -= MISS_INCORRECT_BALL_PUNISHMENT
+                # print("right_1 MISS_incorrect_ball PUNISHMENT")
+                # self.reward_right_2 -= MISS_CORRECT_BALL_PUNISHMENT
+                # print("right_2 MISS_correct_ball PUNISHMENT")
                 self.left_score += 1
                 ball.topleft = generate_center_position()
                 # self.ball2_speed_x = random.choice([-3, 3]) + random.uniform(-1, 1)
@@ -728,7 +838,8 @@ class PongGame:
                             self.right_paddle1_count += 1
                         else:
                             self.reward_right_2 += INCORRECT_BALL_REWARD
-                            self.reward_right_1 -= INCORRECT_BALL_PUNISHMENT
+                            # self.reward_right_1 -= INCORRECT_BALL_PUNISHMENT
+                            # print("right_1 incorrect_ball PUNISHMENT")
                             self.right_paddle2_count += 1
                         ball.right = paddle.left
                     elif ball.left < paddle.right and ball.right > paddle.right:
@@ -739,7 +850,8 @@ class PongGame:
                             self.left_paddle1_count += 1
                         else:
                             self.reward_left_2 += INCORRECT_BALL_REWARD
-                            self.reward_left_1 -= INCORRECT_BALL_PUNISHMENT
+                            # self.reward_left_1 -= INCORRECT_BALL_PUNISHMENT
+                            # print("left_1 incorrect_ball PUNISHMENT")
                             self.left_paddle2_count += 1
                         ball.left = paddle.right
                     else:
@@ -753,7 +865,8 @@ class PongGame:
                         # the right side successfully rebounce back
                         if i == 3:
                             self.reward_right_1 += INCORRECT_BALL_REWARD
-                            self.reward_right_2 -= INCORRECT_BALL_PUNISHMENT
+                            # self.reward_right_2 -= INCORRECT_BALL_PUNISHMENT
+                            # print("right_2 incorrect_ball PUNISHMENT")
                             self.right_paddle1_count += 1
                         else:
                             self.reward_right_2 += CORRECT_BALL_REWARD
@@ -764,7 +877,8 @@ class PongGame:
                         # the left side successsfully rebounce
                         if i == 0:
                             self.reward_left_1 += INCORRECT_BALL_REWARD
-                            self.reward_left_2 -= INCORRECT_BALL_PUNISHMENT
+                            # self.reward_left_2 -= INCORRECT_BALL_PUNISHMENT
+                            # print("left_2 incorrect_ball PUNISHMENT")
                             self.left_paddle1_count += 1
                         else:
                             self.reward_left_2 += CORRECT_BALL_REWARD
