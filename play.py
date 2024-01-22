@@ -5,12 +5,13 @@ from agent import ActorCritic
 import torch
 import torch.optim as optim
 
+from main import LR
+
 
 PLAYTIMES = 50
 EPISODES = 10
 GAMMA = 0.99  # 折扣因子
 BATCH_SIZE = 32
-LR = 0.0001
 
 
 
@@ -31,10 +32,10 @@ if __name__ == '__main__':
 
 
     
-    agent_left_1.load_state_dict(torch.load('./model/left_1_weights_5094.pth'))
-    agent_left_2.load_state_dict(torch.load('./model/left_2_weights_5036.pth'))
-    agent_right_1.load_state_dict(torch.load('./model/right_1_weights_5066.pth'))
-    agent_right_2.load_state_dict(torch.load('./model/right_2_weights_5097.pth'))
+    agent_left_1.load_state_dict(torch.load('./model/left_1_weights_7700.pth'))
+    agent_left_2.load_state_dict(torch.load('./model/left_2_weights_7700.pth'))
+    agent_right_1.load_state_dict(torch.load('./model/right_1_weights_7700.pth'))
+    agent_right_2.load_state_dict(torch.load('./model/right_2_weights_7700.pth'))
     
     
     for episode in range(PLAYTIMES):  # 循环训练次数

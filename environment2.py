@@ -32,6 +32,11 @@ PLAYING = 1
 PAUSED = 2
 GAME_OVER = 3
 
+MAX_SCORE = 3
+
+LEFT = -1
+RIGHT = 1
+
 
 BALL_INITIAL_SPEED = 5
 
@@ -46,7 +51,7 @@ APPROACH_REWARD = 1
 CORRECT_BALL_REWARD = 100
 INCORRECT_BALL_REWARD = 50
 DISTANCE_MAX_REWARD = 0.5
-DISTANCE_REWARD_PUNISHMENT_RATIO = 3
+DISTANCE_REWARD_PUNISHMENT_RATIO = 1.5
 
 # INCORRECT_BALL_PUNISHMENT = 20
 # MISS_CORRECT_BALL_PUNISHMENT = 100
@@ -95,6 +100,8 @@ def get_punishment_from_staying(total_action: int, N: int) -> float:
 
 class PongGame:
     def __init__(self):
+        self.current_server = LEFT
+        
         self.done = False
         self.reward_right_1 = 0
         self.reward_right_2 = 0
@@ -191,11 +198,23 @@ class PongGame:
         vel_y = magnitude * np.sin(angle)
         return vel_x, vel_y
 
+    # def get_current_server_pos(self):
+    #     if self.current_server == LEFT:
+    #         return (self.left_paddle1.center, self.left_paddle2.center)
+    #     else:
+    #         return (self.right_paddle1.center, self.right_paddle2.center)
+
     def reset(self):
         # Reset scores and ball positions
         self.left_score = 0
         self.right_score = 0
 
+        self.current_server *= -1
+
+        # ball_1_pos, ball_2_pos = self.get_current_server_pos()
+        # self.ball1 = pygame.Rect(*ball_1_pos, BALL_WIDTH, BALL_HEIGHT)
+        # self.ball2 = pygame.Rect(*ball_2_pos, BALL_WIDTH, BALL_HEIGHT)
+        # self.ball1.topleft, self.ball2.topleft = self.get_current_server_pos()
         self.ball1.topleft = generate_center_position()
         self.ball2.topleft = generate_center_position()
 
@@ -359,31 +378,6 @@ class PongGame:
             divide_HI(right_paddle2_center),
             positive(right_paddle2_top - ball1_y), positive(ball1_y - right_paddle2_bottom),
             positive(right_paddle2_top - ball2_y), positive(ball2_y - right_paddle2_bottom),
-        ]
-
-        result = [
-            (SCREEN_WIDTH - ball1_x), (SCREEN_WIDTH - ball2_x),
-            (SCREEN_HEIGHT - ball1_y), (SCREEN_HEIGHT - ball2_y),
-
-            (ball1_x), (ball1_y), (ball2_x), (ball2_y),
-
-            self.ball1_speed_x, self.ball1_speed_y, self.ball2_speed_x, self.ball2_speed_y,
-
-            (left_paddle1_center),
-            (left_paddle1_top - ball1_y), (ball1_y - left_paddle1_bottom),
-            (left_paddle1_top - ball2_y), (ball2_y - left_paddle1_bottom),
-
-            (left_paddle2_center),
-            (left_paddle2_top - ball1_y), (ball1_y - left_paddle2_bottom),
-            (left_paddle2_top - ball2_y), (ball2_y - left_paddle2_bottom),
-
-            (right_paddle1_center),
-            (right_paddle1_top - ball1_y), (ball1_y - right_paddle1_bottom),
-            (right_paddle1_top - ball2_y), (ball2_y - right_paddle1_bottom),
-
-            (right_paddle2_center),
-            (right_paddle2_top - ball1_y), (ball1_y - right_paddle2_bottom),
-            (right_paddle2_top - ball2_y), (ball2_y - right_paddle2_bottom),
         ]
 
         result = np.array(result)  # 24
@@ -734,7 +728,7 @@ class PongGame:
 
         # if self.left_score >= 10 or self.right_score >= 10:
         # if self.left_score >= 3 or self.right_score >= 3:
-        if self.left_score >= 11 or self.right_score >= 11:
+        if self.left_score >= MAX_SCORE or self.right_score >= MAX_SCORE:
             self.state = GAME_OVER
 
         if RENDER:
@@ -813,10 +807,10 @@ class PongGame:
                 # ball 1
                 self.right_score += 1
                 # reserve from the middle
-                ball.topleft = generate_center_position()
+                ball.topleft = self.left_paddle1.center
                 # self.ball1_speed_x = 3 + random.uniform(-1, 1)  # Serve to the right
                 # self.ball1_speed_y = random.choice([-3, 3])
-                self.ball1_speed_x, self.ball1_speed_y = self.generate_velocity(direction=1)
+                self.ball1_speed_x, self.ball1_speed_y = self.generate_velocity(direction=RIGHT)
                 # self.ball1_speed_x = 3
                 # self.ball1_speed_y = 3
 
@@ -829,10 +823,10 @@ class PongGame:
                 # print("left_2 MISS_correct_ball PUNISHMENT")
                 # ball 2
                 self.right_score += 1
-                ball.topleft = generate_center_position()
+                ball.topleft = self.left_paddle2.center
                 # self.ball2_speed_x = random.choice([-3, 3]) + random.uniform(-1, 1)
                 # self.ball2_speed_y = random.choice([-3, 3])
-                (self.ball2_speed_x, self.ball2_speed_y) = self.generate_velocity(direction=1)
+                (self.ball2_speed_x, self.ball2_speed_y) = self.generate_velocity(direction=RIGHT)
                 # self.ball2_speed_x = -3
                 # self.ball2_speed_y = -3
 
@@ -850,10 +844,10 @@ class PongGame:
                 # self.reward_right_2 -= MISS_INCORRECT_BALL_PUNISHMENT
                 # print("right_2 MISS_incorrect_ball PUNISHMENT")
                 self.left_score += 1
-                ball.topleft = generate_center_position()
+                ball.topright = self.right_paddle1.center
                 # self.ball1_speed_x = -3 + random.uniform(-1, 1)  # Serve to the left
                 # self.ball1_speed_y = random.choice([-3, 3])
-                self.ball1_speed_x, self.ball1_speed_y = self.generate_velocity(direction=-1)
+                self.ball1_speed_x, self.ball1_speed_y = self.generate_velocity(direction=LEFT)
 
 
             else:
@@ -863,10 +857,10 @@ class PongGame:
                 # self.reward_right_2 -= MISS_CORRECT_BALL_PUNISHMENT
                 # print("right_2 MISS_correct_ball PUNISHMENT")
                 self.left_score += 1
-                ball.topleft = generate_center_position()
+                ball.topright = self.right_paddle2.center
                 # self.ball2_speed_x = random.choice([-3, 3]) + random.uniform(-1, 1)
                 # self.ball2_speed_y = random.choice([-3, 3])
-                self.ball2_speed_x, self.ball2_speed_y = self.generate_velocity(direction=-1)
+                self.ball2_speed_x, self.ball2_speed_y = self.generate_velocity(direction=LEFT)
 
         paddles = [self.left_paddle1, self.left_paddle2, self.right_paddle1, self.right_paddle2]
         for i, paddle in enumerate(paddles):

@@ -1,6 +1,6 @@
 
 import numpy as np
-from environment import PongGame
+from environment2 import PongGame
 from agent import ActorCritic
 import torch
 import torch.optim as optim
